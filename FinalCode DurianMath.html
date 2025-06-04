@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DurianMath 🌱</title>
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=default"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+  <style>
+    body {
+      font-family: 'Noto Sans Thai', sans-serif;
+      background: #f0f8f0;
+      padding: 2rem;
+      color: #333;
+      line-height: 1.6;
+    }
+    h1 {
+      text-align: center;
+      color: #2e7d32;
+      font-size: 2.2rem;
+      margin-bottom: 2rem;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: white;
+      padding: 2.5rem 2rem;
+      border-radius: 12px;
+      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+    }
+    label {
+      font-weight: bold;
+      display: block;
+      margin-top: 1rem;
+    }
+    input, select {
+      padding: 0.75rem;
+      margin-top: 0.25rem;
+      width: 100%;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      box-sizing: border-box;
+      transition: border-color 0.3s;
+    }
+    input:focus, select:focus {
+      border-color: #66bb6a;
+      outline: none;
+    }
+    button {
+      margin-top: 2rem;
+      padding: 0.75rem;
+      width: 100%;
+      background: #4caf50;
+      color: white;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+      font-size: 1rem;
+    }
+    button:hover {
+      background: #388e3c;
+    }
+    .results {
+      display: none;
+      margin-top: 2rem;
+      background: #e6ffe6;
+      padding: 1.25rem;
+      border-radius: 10px;
+      border-left: 5px solid #66bb6a;
+    }
+    .results strong {
+      display: block;
+      margin-top: 1rem;
+      font-size: 1.1rem;
+    }
+    #map {
+      height: 300px;
+      margin-top: 1rem;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+    }
+    #dimensions {
+      margin-top: 1rem;
+      color: #2e7d32;
+    }
+    @media (max-width: 480px) {
+      .container {
+        padding: 1.5rem;
+      }
+      h1 {
+        font-size: 1.8rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>DurianMath 🌱</h1>
+  <div class="container">
+    <label>เลือกวิธีการป้อนขนาดพื้นที่:</label>
+    <select id="inputMode">
+      <option value="map">เลือกจากแผนที่</option>
+      <option value="manual">กรอกความกว้าง/ยาวเอง</option>
+    </select>
+
+    <div id="manualArea" style="display:none;">
+      <label for="width">ความกว้างของพื้นที่ (เมตร):</label>
+      <input type="number" id="width" placeholder="เช่น 100">
+      <label for="length">ความยาวของพื้นที่ (เมตร):</label>
+      <input type="number" id="length" placeholder="เช่น 200">
+    </div>
+
+    <div id="mapArea">
+      <label>เลือกพื้นที่บนแผนที่:</label>
+      <div id="map"></div>
+      <p id="dimensions"></p>
+    </div>
+
+    <label>เลือกวิธีการคำนวณต้นทุน:</label>
+    <select id="costMode">
+      <option value="default">ใช้ข้อมูลที่ระบบแนะนำ</option>
+      <option value="manual">กรอกเอง</option>
+    </select>
+
+    <div id="manualInputs" style="display:none;">
+      <label for="seedCost">ค่าพันธุ์ทุเรียน/ต้น:</label>
+      <input type="number" id="seedCost" placeholder="เช่น 50">
+      <label for="fertilizerCost">ค่าปุ๋ยและยาปราบศัตรูพืช/ต้น:</label>
+      <input type="number" id="fertilizerCost" placeholder="เช่น 80">
+      <label for="electricCost">ค่าไฟฟ้าผันแปร/ต้น:</label>
+      <input type="number" id="electricCost" placeholder="เช่น 20">
+      <label for="laborCost">ค่าแรงงานผันแปร/ต้น:</label>
+      <input type="number" id="laborCost" placeholder="เช่น 100">
+      <label for="toolsCost">มีด/กรรไกร/บันได/ต้น:</label>
+      <input type="number" id="toolsCost" placeholder="เช่น 30">
+      <label for="pipeCost">ค่าท่อน้ำ/ต้น:</label>
+      <input type="number" id="pipeCost" placeholder="เช่น 25">
+      <label for="sprinklerCost">ค่าสปริงเกอร์/อัน (1 ต้นใช้ 2 อัน):</label>
+      <input type="number" id="sprinklerCost" placeholder="เช่น 15">
+    </div>
+
+    <label>ระยะห่างบริเวณต้นทุเรียน (เมตร):</label>
+    <select id="spacing">
+      <option value="8x8">8 × 8 เมตร</option>
+      <option value="8x9">8 × 9 เมตร</option>
+      <option value="8x10">8 × 10 เมตร</option>
+      <option value="9x8">9 × 8 เมตร</option>
+      <option value="9x9">9 × 9 เมตร</option>
+      <option value="9x10">9 × 10 เมตร</option>
+      <option value="10x8">10 × 8 เมตร</option>
+      <option value="10x9">10 × 9 เมตร</option>
+      <option value="10x10">10 × 10 เมตร</option>
+    </select>
+
+    <button onclick="calculate()">คำนวณผลลัพธ์</button>
+    <div class="results" id="output"></div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+  <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+  <script>
+    document.getElementById('inputMode').addEventListener('change', function() {
+      const mode = this.value;
+      document.getElementById('manualArea').style.display = mode === 'manual' ? 'block' : 'none';
+      document.getElementById('mapArea').style.display = mode === 'map' ? 'block' : 'none';
+    });
+
+    document.getElementById('costMode').addEventListener('change', function() {
+      document.getElementById('manualInputs').style.display = this.value === 'manual' ? 'block' : 'none';
+    });
+
+    let selectedWidth = 0, selectedLength = 0;
+    const map = L.map('map').setView([7.0, 100.5], 17);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 22, attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    const drawnItems = new L.FeatureGroup();
+    map.addLayer(drawnItems);
+
+    new L.Control.Draw({
+      draw: { rectangle: true, polygon: true, circle: false, marker: false, polyline: false },
+      edit: { featureGroup: drawnItems }
+    }).addTo(map);
+
+    map.on(L.Draw.Event.CREATED, e => {
+      drawnItems.clearLayers();
+      drawnItems.addLayer(e.layer);
+      const b = e.layer.getBounds();
+      const sw = b.getSouthWest(), ne = b.getNorthEast();
+      selectedWidth = map.distance([sw.lat, sw.lng], [sw.lat, ne.lng]);
+      selectedLength = map.distance([sw.lat, sw.lng], [ne.lat, sw.lng]);
+      document.getElementById('dimensions').innerText = `ขนาดที่ดิน: กว้าง ${selectedWidth.toFixed(2)} ม. × ยาว ${selectedLength.toFixed(2)} ม.`;
+    });
+
+    function calculate() {
+      const inputMode = document.getElementById('inputMode').value;
+      const costMode = document.getElementById('costMode').value;
+      let width, length;
+
+      if (inputMode === 'manual') {
+        width = parseFloat(document.getElementById('width').value);
+        length = parseFloat(document.getElementById('length').value);
+        if (isNaN(width) || isNaN(length) || width <= 0 || length <= 0) {
+          alert("กรุณากรอกขนาดพื้นที่ให้ถูกต้อง");
+          return;
+        }
+      } else {
+        width = selectedWidth;
+        length = selectedLength;
+        if (width === 0 || length === 0) {
+          alert("กรุณาเลือกพื้นที่จากแผนที่");
+          return;
+        }
+      }
+
+      const [spacingW, spacingL] = document.getElementById('spacing').value.split('x').map(Number);
+      const N = Math.floor((width / spacingW) * (length / spacingL));
+
+      let costPerTree = 0;
+      if (costMode === 'manual') {
+        const get = id => parseFloat(document.getElementById(id).value) || 0;
+        costPerTree =
+        get('seedCost') +
+        get('fertilizerCost') +
+        get('electricCost') +
+        get('laborCost') +
+        get('toolsCost') +
+        get('pipeCost') +
+        (get('sprinklerCost') * 2);
+      } else {
+        costPerTree = 660;
+      }
+
+      const TR = N * 120 * 100;
+      const TVC = costPerTree * N + 0.3 * TR + 2.25 * width * length;
+      const TC = 237523 + TVC;
+      const profit = TR - TC;
+
+      let result = `
+        🌳 จำนวนต้นทุเรียนทั้งหมด (N): ${N} ต้น<br/>
+        💰 รายรับรวม (TR): ${TR.toLocaleString()} บาท<br/>
+        📦 ต้นทุนผันแปร (TVC): ${TVC.toLocaleString(undefined, { maximumFractionDigits: 2 })} บาท<br/>
+        💸 ต้นทุนรวม (TC): ${TC.toLocaleString(undefined, { maximumFractionDigits: 2 })} บาท<br/>
+        📊 จุดคุ้มทุน: ${profit.toLocaleString(undefined, { maximumFractionDigits: 2 })} บาท<br/>
+      `;
+
+      result += profit > 0
+        ? "<strong style='color: green;'>ผลกำไร ✔</strong>"
+        : profit < 0
+        ? "<strong style='color: red;'>ขาดทุน ✘</strong>"
+        : "<strong style='color: orange;'>จุดคุ้มทุน ⭕</strong>";
+
+      const output = document.getElementById('output');
+      output.style.display = 'block';
+      output.innerHTML = result;
+    }
+
+    // Ensure dropdown logic runs on load
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('costMode').dispatchEvent(new Event('change'));
+      document.getElementById('inputMode').dispatchEvent(new Event('change'));
+    });
+  </script>
+</body>
+</html>
+
